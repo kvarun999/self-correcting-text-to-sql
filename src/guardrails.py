@@ -56,7 +56,7 @@ def validate_and_guard_sql(sql_string: str) -> dict:
             "error_type": "syntax"
         }
 
-    # Common syntax error pattern checks (missing target, dangling operator, etc.)
+    # Common syntax error pattern checks
     malformed_patterns = [
         r'SELECT\s+FROM',
         r'=\s*;?\s*$',
@@ -83,8 +83,17 @@ def validate_and_guard_sql(sql_string: str) -> dict:
                 }
             
             is_select = isinstance(ast, (exp.Select, exp.Union))
-            forbidden_nodes = (exp.Drop, exp.Delete, exp.Update, exp.Insert, exp.Alter, exp.Truncate, exp.Create)
-            has_forbidden_nodes = any(ast.find(fn) for fn in forbidden_nodes)
+            forbidden_nodes = tuple(
+                fn for fn in [
+                    getattr(exp, 'Drop', None),
+                    getattr(exp, 'Delete', None),
+                    getattr(exp, 'Update', None),
+                    getattr(exp, 'Insert', None),
+                    getattr(exp, 'Create', None),
+                    getattr(exp, 'TruncateTable', None)
+                ] if fn is not None
+            )
+            has_forbidden_nodes = any(ast.find(fn) for fn in forbidden_nodes) if forbidden_nodes else False
 
             if not is_select or has_forbidden_nodes:
                 return {
